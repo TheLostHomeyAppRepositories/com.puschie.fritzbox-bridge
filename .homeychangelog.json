@@ -157,5 +157,8 @@
   },
   "0.11.1": {
     "en": "* Ensure correct data handling in error cases"
+  },
+  "0.11.2": {
+    "en": "* Fix fritzbox status update"
   }
 }
