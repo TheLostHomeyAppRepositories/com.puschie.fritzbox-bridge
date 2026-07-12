@@ -154,5 +154,8 @@
   },
   "0.11.0": {
     "en": "* Fix error messages when not authenticated\n* Improve data requests by updating os version only every 10min"
+  },
+  "0.11.1": {
+    "en": "* Ensure correct data handling in error cases"
   }
 }

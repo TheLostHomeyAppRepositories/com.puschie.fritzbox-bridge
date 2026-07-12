@@ -35,7 +35,7 @@ function httpRequest( path: string, req: any, options: any )
 
 async function LoadData( sid: any, options: any, page?: string, xhrId?: string )
 {
-	console.debug( 'sid: ' + sid );
+	//console.debug( 'sid: ' + sid );
 
 	const req = {
 		method: 'POST', form: {
@@ -51,10 +51,10 @@ async function LoadData( sid: any, options: any, page?: string, xhrId?: string )
 	{
 		return JSON.parse( body );
 	}
-	catch( e )
+	catch( error: any )
 	{
 		console.error( 'failed to parse json: ' + body );
-		return [];
+		throw error; // ensure we dont return empty
 	}
 }
 
