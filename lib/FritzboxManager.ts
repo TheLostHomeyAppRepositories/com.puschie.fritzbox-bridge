@@ -17,7 +17,7 @@ export class FritzboxManager
 	private readonly homey: Homey;
 	private readonly tracker: FritzboxTracker;
 	private lastDeviceData?: any;
-	private readonly pollingWaitTime: number = 45 * 1000; // set to >30 to ensure we don't spam fritzbox (might have negative effects on older versions)
+	private readonly pollingWaitTime: number = 4 * 60 * 1000; // ensure we don't spam fritzbox (might have negative effects on older versions)
 	private readonly longPollingWaitTime: number = 10 * 60 * 1000; // long polls are fixed to update every 10 min
 
 	public constructor( homey: Homey )
@@ -199,6 +199,38 @@ export class FritzboxManager
 		return ( this.homey.settings.get( Settings.REQUEST_NETWORK ) || SettingsDefault.REQUEST_NETWORK ) == true;
 	}
 
+	private shouldUpdateStatus(): boolean
+	{
+		// first call or wait time reached
+		return this.lastLongPolling === undefined || this.lastLongPolling + this.longPollingWaitTime < this.getCurrentTime();
+	}
+
+	private markStatusAsUpdated()
+	{
+		this.lastLongPolling = this.getCurrentTime();
+	}
+
+	private shouldPoll(): boolean
+	{
+		// first call or wait time not reached
+		return this.lastPolling == undefined || this.lastPolling + this.pollingWaitTime < this.getCurrentTime();
+	}
+
+	private markPollAsActive()
+	{
+		this.lastPolling = this.getCurrentTime();
+	}
+
+	private markPollAsDone()
+	{
+		this.lastPolling = undefined;
+	}
+
+	private getCurrentTime(): number
+	{
+		return new Date().getTime();
+	}
+
 	private async ProcessPoll( data: any[] )
 	{
 		const drivers = Object.entries( this.homey.drivers.getDrivers() );
@@ -254,33 +286,32 @@ export class FritzboxManager
 	private async ExecuteStatusPoll()
 	{
 		const fritzbox = this.homey.drivers.getDriver( 'fritzbox' ).getDevices();
-		if( fritzbox.length > 0 )
+		if( fritzbox.length === 0 )
 		{
 			return;
 		}
 
-		const currentTime = new Date().getTime();
-		if( this.lastLongPolling && this.lastLongPolling + this.longPollingWaitTime > currentTime )
+		if( !this.shouldUpdateStatus() )
 		{
 			return;
 		}
 
 		// update devices
 		const overview = await this.GetApi().getFritzboxOverview();
-		await this.updateFritzboxData( overview, );
+		await this.updateFritzboxData( overview );
+
+		// mark as done
+		this.markStatusAsUpdated();
 	}
 
 	public async updateFritzboxData( overview: object )
 	{
-		this.lastLongPolling = new Date().getTime();
 		for( const device of this.homey.drivers.getDriver( 'fritzbox' ).getDevices() )
 		{
 			const fritzboxDevice = device as Device;
 
 			await fritzboxDevice.Update( overview );
 		}
-
-		console.log( 'fritzbox data updated' );
 	}
 
 	/**
@@ -288,14 +319,13 @@ export class FritzboxManager
 	 */
 	private async Poll(): Promise<void>
 	{
-		const currentTime = new Date().getTime();
-		if( this.lastPolling && this.lastPolling + this.pollingWaitTime > currentTime )
+		if( !this.shouldPoll() )
 		{
 			console.debug( 'skip poll' );
 			return;
 		}
-		
-		this.lastPolling = currentTime;
+
+		this.markPollAsActive();
 		
 		try
 		{
@@ -306,9 +336,8 @@ export class FritzboxManager
 		{
 			this.logPolError( error );
 		}
-		
-		// clear waiting on last
-		this.lastPolling = undefined;
+
+		this.markPollAsDone();
 	}
 
 	// helper
